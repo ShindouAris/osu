@@ -36,6 +36,7 @@ namespace osu.Game.Tests.Visual.Online
         private OsuConfigManager localConfig;
 
         private bool returnCursorOnResponse;
+        private bool returnCursorStringOnResponse;
 
         [BackgroundDependencyLoader]
         private void load()
@@ -50,6 +51,8 @@ namespace osu.Game.Tests.Visual.Online
             {
                 Child = overlay = new BeatmapListingOverlay { State = { Value = Visibility.Visible } };
                 setsForResponse.Clear();
+                returnCursorOnResponse = false;
+                returnCursorStringOnResponse = false;
             });
 
             AddStep("initialize dummy", () =>
@@ -64,6 +67,7 @@ namespace osu.Game.Tests.Visual.Online
                     {
                         BeatmapSets = setsForResponse,
                         Cursor = returnCursorOnResponse ? new Cursor() : null,
+                        CursorString = returnCursorStringOnResponse ? "cursor-string" : null,
                     });
 
                     return true;
@@ -216,6 +220,17 @@ namespace osu.Game.Tests.Visual.Online
             AddUntilStep("wait for loaded", () => this.ChildrenOfType<BeatmapCard>().Count() >= 99);
 
             AddAssert("beatmap not duplicated", () => overlay.ChildrenOfType<BeatmapCard>().Count(c => c.BeatmapSet.Equals(beatmapSet)) == 1);
+        }
+
+        [Test]
+        public void TestCursorStringPaginationFetchesNextPage()
+        {
+            AddStep("show first page with cursor string", () => fetchFor(getManyBeatmaps(50).ToArray(), hasNextPageViaCursor: false, hasNextPageViaCursorString: true));
+            AddUntilStep("wait for first page loaded", () => this.ChildrenOfType<BeatmapCard>().Count() == 50);
+
+            AddStep("set second page", () => setSearchResponse(getManyBeatmaps(50).ToArray(), hasNextPageViaCursor: false, hasNextPageViaCursorString: false));
+            AddStep("scroll to end", () => overlay.ChildrenOfType<OverlayScrollContainer>().Single().ScrollToEnd());
+            AddUntilStep("wait for second page loaded", () => this.ChildrenOfType<BeatmapCard>().Count() == 100);
         }
 
         [Test]
@@ -380,17 +395,29 @@ namespace osu.Game.Tests.Visual.Online
 
         private void fetchFor(APIBeatmapSet[] beatmaps, bool hasNextPage)
         {
-            setSearchResponse(beatmaps, hasNextPage);
+            setSearchResponse(beatmaps, hasNextPage, false);
+
+            // trigger arbitrary change for fetching.
+            searchControl.Query.Value = $"search {searchCount++}";
+        }
+
+        private void fetchFor(APIBeatmapSet[] beatmaps, bool hasNextPageViaCursor, bool hasNextPageViaCursorString)
+        {
+            setSearchResponse(beatmaps, hasNextPageViaCursor, hasNextPageViaCursorString);
 
             // trigger arbitrary change for fetching.
             searchControl.Query.Value = $"search {searchCount++}";
         }
 
         private void setSearchResponse(APIBeatmapSet[] beatmaps, bool hasNextPage)
+            => setSearchResponse(beatmaps, hasNextPage, false);
+
+        private void setSearchResponse(APIBeatmapSet[] beatmaps, bool hasNextPageViaCursor, bool hasNextPageViaCursorString)
         {
             setsForResponse.Clear();
             setsForResponse.AddRange(beatmaps);
-            returnCursorOnResponse = hasNextPage;
+            returnCursorOnResponse = hasNextPageViaCursor;
+            returnCursorStringOnResponse = hasNextPageViaCursorString;
         }
 
         private void setRankAchievedFilter(ScoreRank[] ranks)

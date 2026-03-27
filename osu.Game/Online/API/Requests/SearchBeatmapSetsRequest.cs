@@ -43,12 +43,14 @@ namespace osu.Game.Online.API.Requests
         private readonly string query;
         private readonly RulesetInfo ruleset;
         private readonly Cursor cursor;
+        private readonly string cursorString;
 
         private string directionString => SortDirection == SortDirection.Descending ? @"desc" : @"asc";
 
         public SearchBeatmapSetsRequest(
             string query,
             RulesetInfo ruleset,
+            string cursorString = null,
             Cursor cursor = null,
             IReadOnlyCollection<SearchGeneral> general = null,
             SearchCategory searchCategory = SearchCategory.Any,
@@ -63,6 +65,7 @@ namespace osu.Game.Online.API.Requests
         {
             this.query = query;
             this.ruleset = ruleset;
+            this.cursorString = cursorString;
             this.cursor = cursor;
 
             General = general;
@@ -111,7 +114,9 @@ namespace osu.Game.Online.API.Requests
 
             req.AddParameter("nsfw", ExplicitContent == SearchExplicit.Show ? "true" : "false");
 
-            if (cursor != null)
+            if (cursorString != null)
+                req.AddParameter("cursor_string", cursorString);
+            else if (cursor != null)
                 req.AddCursor(cursor);
 
             return req;

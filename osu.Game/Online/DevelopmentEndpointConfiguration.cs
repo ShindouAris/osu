@@ -7,13 +7,12 @@ namespace osu.Game.Online
     {
         public DevelopmentEndpointConfiguration()
         {
-            WebsiteUrl = APIUrl = @"https://dev.ppy.sh";
-            APIClientSecret = @"3LP2mhUrV89xxzD1YKNndXHEhWWCRLPNKioZ9ymT";
+            WebsiteUrl = APIUrl = @"https://localhost:8000";
+            APIClientSecret = @"change-ts";
             APIClientID = "5";
-            SpectatorUrl = $@"{APIUrl}/signalr/spectator";
-            MultiplayerUrl = $@"{APIUrl}/signalr/multiplayer";
-            MetadataUrl = $@"{APIUrl}/signalr/metadata";
-            BeatmapSubmissionServiceUrl = $@"{APIUrl}/beatmap-submission";
+            SpectatorUrl = "https://localhost:8000/spectator";
+            MultiplayerUrl = "https://localhost:8000/multiplayer";
+            MetadataUrl = "https://localhost:8000/metadata";
         }
     }
 }

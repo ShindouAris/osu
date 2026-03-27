@@ -135,7 +135,7 @@ namespace osu.Game.Online.API.Requests.Responses
         public bool ShouldSerializeUser() => false;
         public bool ShouldSerializeBeatmap() => false;
         public bool ShouldSerializeBeatmapSet() => false;
-        public bool ShouldSerializePP() => false;
+        public bool ShouldSerializePP() => PP != null;
         public bool ShouldSerializeOnlineID() => false;
         public bool ShouldSerializeHasReplay() => false;
         public bool ShouldSerializePreserve() => false;
