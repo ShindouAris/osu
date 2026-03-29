@@ -173,6 +173,7 @@ namespace osu.Game.Rulesets.Osu
                     return new Mod[]
                     {
                         new OsuModHardRock(),
+                        new OsuModLowAr(),
                         new MultiMod(new OsuModSuddenDeath(), new OsuModPerfect()),
                         new MultiMod(new OsuModDoubleTime(), new OsuModNightcore()),
                         new MultiMod(new OsuModHidden(), new OsuModTraceable()),
