@@ -4,14 +4,18 @@
 #nullable disable
 
 using System.Linq;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Testing;
 using osu.Game.Graphics.UserInterface;
+using osu.Game.Graphics.UserInterfaceV2;
+using osu.Game.Online.API;
 using osu.Game.Overlays;
 using osu.Game.Overlays.Settings;
 using osu.Game.Overlays.Settings.Sections;
+using osu.Game.Overlays.Settings.Sections.DebugSettings;
 using osu.Game.Overlays.Settings.Sections.Input;
 using osuTK.Input;
 
@@ -20,6 +24,8 @@ namespace osu.Game.Tests.Visual.Settings
     [TestFixture]
     public partial class TestSceneSettingsPanel : OsuManualInputManagerTestScene
     {
+        private DummyAPIAccess dummyAPI => (DummyAPIAccess)API;
+
         private SettingsPanel settings;
         private DialogOverlay dialogOverlay;
 
@@ -150,6 +156,68 @@ namespace osu.Game.Tests.Visual.Settings
             AddAssert("no text selected", () => searchTextBox.SelectedText == string.Empty);
             AddRepeatStep("toggle visibility", () => settings.ToggleVisibility(), 2);
             AddAssert("search text selected", () => searchTextBox.SelectedText == searchTextBox.Current.Value);
+        }
+
+        [Test]
+        public void TestServerSettingsSectionVisible()
+        {
+            AddUntilStep("wait for settings to load", () => settings.SectionsContainer.ChildrenOfType<IFilterable>().Any());
+            AddAssert("server settings visible", () => settings.SectionsContainer.ChildrenOfType<ServerSettings>().Any());
+            AddAssert("socket server URL field visible", () => settings.SectionsContainer
+                                                                      .ChildrenOfType<ServerSettings>()
+                                                                      .SelectMany(s => s.ChildrenOfType<FormTextBox>())
+                                                                      .Any(t => t.Caption.ToString().Contains("Socket server URL")));
+        }
+
+        [Test]
+        public void TestServerSettingsRequireOfflineStateToEdit()
+        {
+            ServerSettings serverSettings = null!;
+            FormCheckBox useCustomServerToggle = null!;
+            FormTextBox serverUrlTextBox = null!;
+            SettingsButtonV2 revertToDefaultButton = null!;
+
+            AddUntilStep("wait for server settings", () => (serverSettings = settings.SectionsContainer.ChildrenOfType<ServerSettings>().SingleOrDefault()) != null);
+            AddStep("grab custom server controls", () =>
+            {
+                useCustomServerToggle = serverSettings.ChildrenOfType<FormCheckBox>().First();
+                serverUrlTextBox = serverSettings.ChildrenOfType<FormTextBox>().First();
+                revertToDefaultButton = serverSettings.ChildrenOfType<SettingsButtonV2>().First();
+            });
+
+            AddAssert("revert button disabled when custom server off", () => !revertToDefaultButton.Enabled.Value);
+
+            AddStep("set API online", () => dummyAPI.SetState(APIState.Online));
+            AddAssert("custom server toggle disabled", () => useCustomServerToggle.Current.Disabled);
+            AddAssert("server URL textbox read-only", () => serverUrlTextBox.ReadOnly);
+            AddAssert("server URL bindable is not disabled", () => !serverUrlTextBox.Current.Disabled);
+            AddAssert("revert button disabled while online", () => !revertToDefaultButton.Enabled.Value);
+
+            AddStep("set API offline", () => dummyAPI.SetState(APIState.Offline));
+            AddAssert("custom server toggle enabled", () => !useCustomServerToggle.Current.Disabled);
+
+            AddStep("enable custom server", () => useCustomServerToggle.Current.Value = true);
+            AddAssert("server URL textbox editable", () => !serverUrlTextBox.ReadOnly);
+            AddAssert("revert button enabled when custom server is on", () => revertToDefaultButton.Enabled.Value);
+
+            AddStep("set API online again", () => dummyAPI.SetState(APIState.Online));
+            AddAssert("revert button disabled again while online", () => !revertToDefaultButton.Enabled.Value);
+        }
+
+        [Test]
+        public void TestServerSettingsStateChangesFromBackgroundThread()
+        {
+            ServerSettings serverSettings = null!;
+            FormCheckBox useCustomServerToggle = null!;
+
+            AddUntilStep("wait for server settings", () => (serverSettings = settings.SectionsContainer.ChildrenOfType<ServerSettings>().SingleOrDefault()) != null);
+            AddStep("grab custom server toggle", () => useCustomServerToggle = serverSettings.ChildrenOfType<FormCheckBox>().First());
+
+            AddStep("set API online on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Online)).Wait());
+            AddAssert("custom server toggle disabled", () => useCustomServerToggle.Current.Disabled);
+
+            AddStep("set API offline on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Offline)).Wait());
+            AddAssert("custom server toggle enabled", () => !useCustomServerToggle.Current.Disabled);
         }
 
         [BackgroundDependencyLoader]

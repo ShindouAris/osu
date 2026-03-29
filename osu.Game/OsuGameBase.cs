@@ -105,8 +105,69 @@ namespace osu.Game
 
         public virtual bool UseDevelopmentServer => DebugUtils.IsDebugBuild;
 
-        public virtual EndpointConfiguration CreateEndpoints() =>
-            UseDevelopmentServer ? new DevelopmentEndpointConfiguration() : new ProductionEndpointConfiguration();
+        public virtual EndpointConfiguration CreateEndpoints()
+        {
+            if (LocalConfig?.Get<bool>(OsuSetting.UseCustomServer) == true)
+            {
+                if (tryCreateCustomEndpoints(LocalConfig.Get<string>(OsuSetting.CustomServerUrl),
+                                             LocalConfig.Get<string>(OsuSetting.CustomServerSocketUrl),
+                                             LocalConfig.Get<string>(OsuSetting.CustomServerClientID),
+                                             LocalConfig.Get<string>(OsuSetting.CustomServerClientSecret),
+                                             out var customEndpoints))
+                    return customEndpoints;
+            }
+
+            return UseDevelopmentServer ? new DevelopmentEndpointConfiguration() : new ProductionEndpointConfiguration();
+        }
+
+        private static bool tryCreateCustomEndpoints(string rawServerUrl, string rawSocketServerUrl, string clientID, string clientSecret, out EndpointConfiguration endpoints)
+        {
+            endpoints = null!;
+            string? normalisedServerUrl = normaliseServerUrl(rawServerUrl);
+
+            if (string.IsNullOrEmpty(normalisedServerUrl))
+                return false;
+
+            string normalisedSocketServerUrl = normalisedServerUrl;
+
+            if (!string.IsNullOrWhiteSpace(rawSocketServerUrl))
+            {
+                normalisedSocketServerUrl = normaliseServerUrl(rawSocketServerUrl) ?? string.Empty;
+
+                if (string.IsNullOrEmpty(normalisedSocketServerUrl))
+                    return false;
+            }
+
+            endpoints = new EndpointConfiguration
+            {
+                WebsiteUrl = normalisedServerUrl,
+                APIUrl = normalisedServerUrl,
+                APIClientID = clientID,
+                APIClientSecret = clientSecret,
+                SpectatorUrl = $@"{normalisedSocketServerUrl}/spectator",
+                MultiplayerUrl = $@"{normalisedSocketServerUrl}/multiplayer",
+                MetadataUrl = $@"{normalisedSocketServerUrl}/metadata",
+                BeatmapSubmissionServiceUrl = normalisedServerUrl,
+            };
+
+            return true;
+        }
+
+        private static string? normaliseServerUrl(string? rawServerUrl)
+        {
+            if (string.IsNullOrWhiteSpace(rawServerUrl))
+                return null;
+
+            string candidate = rawServerUrl.Trim().TrimEnd('/');
+
+            if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri))
+                return null;
+
+            if (!uri.IsAbsoluteUri || string.IsNullOrEmpty(uri.Host))
+                return null;
+
+            return uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
+        }
 
         protected override OnlineStore CreateOnlineStore() => new TrustedDomainOnlineStore();
 
@@ -303,6 +364,7 @@ namespace osu.Game
             dependencies.CacheAs<ISkinSource>(SkinManager);
 
             EndpointConfiguration endpoints = CreateEndpoints();
+            clearCustomServerSecretIfNotRemembered();
 
             MessageFormatter.WebsiteRootUrl = endpoints.WebsiteUrl;
 
@@ -342,6 +404,14 @@ namespace osu.Game
             base.Content.Add(new BeatmapOnlineChangeIngest(beatmapUpdater, realm, metadataClient));
 
             BeatmapManager.ProcessBeatmap = (beatmapSet, scope) => beatmapUpdater.Process(beatmapSet, scope);
+
+            void clearCustomServerSecretIfNotRemembered()
+            {
+                if (LocalConfig.Get<bool>(OsuSetting.RememberCustomServerSecret))
+                    return;
+
+                LocalConfig.SetValue(OsuSetting.CustomServerClientSecret, string.Empty);
+            }
 
             dependencies.Cache(userCache = new UserLookupCache());
             base.Content.Add(userCache);

@@ -67,8 +67,8 @@ namespace osu.Game.Graphics.UserInterfaceV2
         {
             base.LoadComplete();
 
-            Current.BindDisabledChanged(_ => updateState());
-            Current.BindValueChanged(_ => updateState(), true);
+            Current.BindDisabledChanged(_ => Scheduler.AddOnce(updateState));
+            Current.BindValueChanged(_ => Scheduler.AddOnce(updateState), true);
 
             FinishTransforms(true);
         }

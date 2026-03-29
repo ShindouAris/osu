@@ -8,7 +8,7 @@ namespace osu.Game.Online
         public DevelopmentEndpointConfiguration()
         {
             WebsiteUrl = APIUrl = @"https://localhost:8000";
-            APIClientSecret = @"change-ts";
+            APIClientSecret = @"4BcTIWBAG31ASGx4dbMYwl7wZZcaQE2F2bqVGCZ1";
             APIClientID = "5";
             SpectatorUrl = "https://localhost:8000/spectator";
             MultiplayerUrl = "https://localhost:8000/multiplayer";

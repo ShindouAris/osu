@@ -100,6 +100,18 @@ namespace osu.Game.Configuration
             SetDefault(OsuSetting.NotifyOnPrivateMessage, true);
             SetDefault(OsuSetting.NotifyOnFriendPresenceChange, true);
 
+            SetDefault(OsuSetting.UseCustomServer, false);
+            SetDefault(OsuSetting.CustomServerUrl, string.Empty);
+            SetDefault(OsuSetting.CustomServerSocketUrl, string.Empty);
+            SetDefault(OsuSetting.CustomServerClientID, string.Empty);
+            SetDefault(OsuSetting.CustomServerClientSecret, string.Empty);
+
+            SetDefault(OsuSetting.RememberCustomServerSecret, false).ValueChanged += enabled =>
+            {
+                if (!enabled.NewValue)
+                    GetBindable<string>(OsuSetting.CustomServerClientSecret).SetDefault();
+            };
+
             // Audio
             SetDefault(OsuSetting.VolumeInactive, 0.25, 0, 1, 0.01);
 
@@ -245,6 +257,7 @@ namespace osu.Game.Configuration
             switch (lookup)
             {
                 case OsuSetting.Token:
+                case OsuSetting.CustomServerClientSecret:
                     return true;
             }
 
@@ -434,6 +447,12 @@ namespace osu.Game.Configuration
         NotifyOnUsernameMentioned,
         NotifyOnPrivateMessage,
         NotifyOnFriendPresenceChange,
+        UseCustomServer,
+        CustomServerUrl,
+        CustomServerSocketUrl,
+        CustomServerClientID,
+        CustomServerClientSecret,
+        RememberCustomServerSecret,
         UIHoldActivationDelay,
         HitLighting,
         StarFountains,

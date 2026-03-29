@@ -21,6 +21,8 @@ namespace osu.Game.Overlays.Settings.Sections
 
         public DebugSection()
         {
+            Add(new ServerSettings());
+
             if (DebugUtils.IsDebugBuild)
             {
                 Add(new GeneralSettings());
