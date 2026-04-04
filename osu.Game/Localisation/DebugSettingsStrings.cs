@@ -40,6 +40,21 @@ namespace osu.Game.Localisation
         public static LocalisableString SocketServerUrl => new TranslatableString(getKey(@"socket_server_url"), @"Socket server URL (optional)");
 
         /// <summary>
+        /// "Spectator socket server URL (optional)"
+        /// </summary>
+        public static LocalisableString SpectatorSocketServerUrl => new TranslatableString(getKey(@"spectator_socket_server_url"), @"Spectator socket server URL (optional)");
+
+        /// <summary>
+        /// "Multiplayer socket server URL (optional)"
+        /// </summary>
+        public static LocalisableString MultiplayerSocketServerUrl => new TranslatableString(getKey(@"multiplayer_socket_server_url"), @"Multiplayer socket server URL (optional)");
+
+        /// <summary>
+        /// "Metadata socket server URL (optional)"
+        /// </summary>
+        public static LocalisableString MetadataSocketServerUrl => new TranslatableString(getKey(@"metadata_socket_server_url"), @"Metadata socket server URL (optional)");
+
+        /// <summary>
         /// "Leave empty to use Server URL."
         /// </summary>
         public static LocalisableString SocketServerUrlHint => new TranslatableString(getKey(@"socket_server_url_hint"), @"Leave empty to use Server URL.");
@@ -88,6 +103,21 @@ namespace osu.Game.Localisation
         /// "Please enter a valid absolute socket server URL."
         /// </summary>
         public static LocalisableString InvalidSocketServerUrl => new TranslatableString(getKey(@"invalid_socket_server_url"), @"Please enter a valid absolute socket server URL.");
+
+        /// <summary>
+        /// "Please enter a valid absolute spectator socket server URL."
+        /// </summary>
+        public static LocalisableString InvalidSpectatorSocketServerUrl => new TranslatableString(getKey(@"invalid_spectator_socket_server_url"), @"Please enter a valid absolute spectator socket server URL.");
+
+        /// <summary>
+        /// "Please enter a valid absolute multiplayer socket server URL."
+        /// </summary>
+        public static LocalisableString InvalidMultiplayerSocketServerUrl => new TranslatableString(getKey(@"invalid_multiplayer_socket_server_url"), @"Please enter a valid absolute multiplayer socket server URL.");
+
+        /// <summary>
+        /// "Please enter a valid absolute metadata socket server URL."
+        /// </summary>
+        public static LocalisableString InvalidMetadataSocketServerUrl => new TranslatableString(getKey(@"invalid_metadata_socket_server_url"), @"Please enter a valid absolute metadata socket server URL.");
 
         /// <summary>
         /// "Client secrets are stored in plain text while remembered."

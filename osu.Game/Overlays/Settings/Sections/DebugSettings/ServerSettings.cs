@@ -22,7 +22,9 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
 
         private FormCheckBox useCustomServer = null!;
         private FormTextBox customServerUrl = null!;
-        private FormTextBox customServerSocketUrl = null!;
+        private FormTextBox customServerSpectatorSocketUrl = null!;
+        private FormTextBox customServerMultiplayerSocketUrl = null!;
+        private FormTextBox customServerMetadataSocketUrl = null!;
         private FormTextBox customServerClientID = null!;
         private FormSecretTextBox customServerClientSecret = null!;
         private FormCheckBox rememberCustomServerSecret = null!;
@@ -34,7 +36,9 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
 
         private IBindable<bool> customServerEnabledBindable = null!;
         private IBindable<string> customServerUrlBindable = null!;
-        private IBindable<string> customServerSocketUrlBindable = null!;
+        private IBindable<string> customServerSpectatorSocketUrlBindable = null!;
+        private IBindable<string> customServerMultiplayerSocketUrlBindable = null!;
+        private IBindable<string> customServerMetadataSocketUrlBindable = null!;
         private IBindable<string> customServerClientIDBindable = null!;
         private IBindable<string> customServerClientSecretBindable = null!;
         private IBindable<bool> rememberCustomServerSecretBindable = null!;
@@ -46,7 +50,9 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
         {
             customServerEnabledBindable = config.GetBindable<bool>(OsuSetting.UseCustomServer);
             customServerUrlBindable = config.GetBindable<string>(OsuSetting.CustomServerUrl);
-            customServerSocketUrlBindable = config.GetBindable<string>(OsuSetting.CustomServerSocketUrl);
+            customServerSpectatorSocketUrlBindable = config.GetBindable<string>(OsuSetting.CustomServerSpectatorSocketUrl);
+            customServerMultiplayerSocketUrlBindable = config.GetBindable<string>(OsuSetting.CustomServerMultiplayerSocketUrl);
+            customServerMetadataSocketUrlBindable = config.GetBindable<string>(OsuSetting.CustomServerMetadataSocketUrl);
             customServerClientIDBindable = config.GetBindable<string>(OsuSetting.CustomServerClientID);
             customServerClientSecretBindable = config.GetBindable<string>(OsuSetting.CustomServerClientSecret);
             rememberCustomServerSecretBindable = config.GetBindable<bool>(OsuSetting.RememberCustomServerSecret);
@@ -66,12 +72,26 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
                     PlaceholderText = @"https://localhost:8000",
                     Current = { BindTarget = customServerUrlBindable },
                 }),
-                new SettingsItemV2(customServerSocketUrl = new FormTextBox
+                new SettingsItemV2(customServerSpectatorSocketUrl = new FormTextBox
                 {
-                    Caption = DebugSettingsStrings.SocketServerUrl,
+                    Caption = DebugSettingsStrings.SpectatorSocketServerUrl,
                     HintText = DebugSettingsStrings.SocketServerUrlHint,
                     PlaceholderText = @"https://localhost:8000",
-                    Current = { BindTarget = customServerSocketUrlBindable },
+                    Current = { BindTarget = customServerSpectatorSocketUrlBindable },
+                }),
+                new SettingsItemV2(customServerMultiplayerSocketUrl = new FormTextBox
+                {
+                    Caption = DebugSettingsStrings.MultiplayerSocketServerUrl,
+                    HintText = DebugSettingsStrings.SocketServerUrlHint,
+                    PlaceholderText = @"https://localhost:8000",
+                    Current = { BindTarget = customServerMultiplayerSocketUrlBindable },
+                }),
+                new SettingsItemV2(customServerMetadataSocketUrl = new FormTextBox
+                {
+                    Caption = DebugSettingsStrings.MetadataSocketServerUrl,
+                    HintText = DebugSettingsStrings.SocketServerUrlHint,
+                    PlaceholderText = @"https://localhost:8000",
+                    Current = { BindTarget = customServerMetadataSocketUrlBindable },
                 }),
                 new SettingsItemV2(customServerClientID = new FormTextBox
                 {
@@ -105,7 +125,9 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
 
             customServerEnabledBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
             customServerUrlBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
-            customServerSocketUrlBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
+            customServerSpectatorSocketUrlBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
+            customServerMultiplayerSocketUrlBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
+            customServerMetadataSocketUrlBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
             customServerClientIDBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
             customServerClientSecretBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
             rememberCustomServerSecretBindable.BindValueChanged(_ => Scheduler.AddOnce(updateState));
@@ -118,14 +140,23 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
             bool customServerEnabled = useCustomServer.Current.Value;
             bool hasPendingChanges = hasPendingServerChanges();
             bool hasValidServerUrl = !customServerEnabled || tryNormaliseServerUrl(customServerUrl.Current.Value, out _);
-            bool hasValidSocketServerUrl = !customServerEnabled
-                                           || string.IsNullOrWhiteSpace(customServerSocketUrl.Current.Value)
-                                           || tryNormaliseServerUrl(customServerSocketUrl.Current.Value, out _);
+            bool hasValidSpectatorSocketServerUrl = !customServerEnabled
+                                                    || string.IsNullOrWhiteSpace(customServerSpectatorSocketUrl.Current.Value)
+                                                    || tryNormaliseServerUrl(customServerSpectatorSocketUrl.Current.Value, out _);
+            bool hasValidMultiplayerSocketServerUrl = !customServerEnabled
+                                                      || string.IsNullOrWhiteSpace(customServerMultiplayerSocketUrl.Current.Value)
+                                                      || tryNormaliseServerUrl(customServerMultiplayerSocketUrl.Current.Value, out _);
+            bool hasValidMetadataSocketServerUrl = !customServerEnabled
+                                                   || string.IsNullOrWhiteSpace(customServerMetadataSocketUrl.Current.Value)
+                                                   || tryNormaliseServerUrl(customServerMetadataSocketUrl.Current.Value, out _);
+            bool hasValidSocketServerUrls = hasValidSpectatorSocketServerUrl && hasValidMultiplayerSocketServerUrl && hasValidMetadataSocketServerUrl;
 
             useCustomServer.Current.Disabled = !canEdit;
             // Keep text bindables writable to avoid TextBox load synchronisation exceptions.
             customServerUrl.ReadOnly = !canEdit || !customServerEnabled;
-            customServerSocketUrl.ReadOnly = !canEdit || !customServerEnabled;
+            customServerSpectatorSocketUrl.ReadOnly = !canEdit || !customServerEnabled;
+            customServerMultiplayerSocketUrl.ReadOnly = !canEdit || !customServerEnabled;
+            customServerMetadataSocketUrl.ReadOnly = !canEdit || !customServerEnabled;
             customServerClientID.ReadOnly = !canEdit || !customServerEnabled;
             customServerClientSecret.ReadOnly = !canEdit || !customServerEnabled;
             rememberCustomServerSecret.Current.Disabled = !canEdit || !customServerEnabled;
@@ -133,12 +164,12 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
             bool canRevertToDefault = canEdit && customServerEnabled;
 
             resetToDefaultServerButton.Enabled.Value = canRevertToDefault;
-            restartToApplyServerChangesButton.Enabled.Value = canEdit && hasPendingChanges && hasValidServerUrl && hasValidSocketServerUrl;
+            restartToApplyServerChangesButton.Enabled.Value = canEdit && hasPendingChanges && hasValidServerUrl && hasValidSocketServerUrls;
 
-            note.Current.Value = createNote(canEdit, customServerEnabled, hasPendingChanges, hasValidServerUrl, hasValidSocketServerUrl);
+            note.Current.Value = createNote(canEdit, customServerEnabled, hasPendingChanges, hasValidServerUrl, hasValidSpectatorSocketServerUrl, hasValidMultiplayerSocketServerUrl, hasValidMetadataSocketServerUrl);
         }
 
-        private SettingsNote.Data? createNote(bool canEdit, bool customServerEnabled, bool hasPendingChanges, bool hasValidServerUrl, bool hasValidSocketServerUrl)
+        private SettingsNote.Data? createNote(bool canEdit, bool customServerEnabled, bool hasPendingChanges, bool hasValidServerUrl, bool hasValidSpectatorSocketServerUrl, bool hasValidMultiplayerSocketServerUrl, bool hasValidMetadataSocketServerUrl)
         {
             if (!canEdit)
                 return new SettingsNote.Data(DebugSettingsStrings.SignOutBeforeChangingServer, SettingsNote.Type.Critical);
@@ -146,8 +177,14 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
             if (customServerEnabled && !hasValidServerUrl)
                 return new SettingsNote.Data(DebugSettingsStrings.InvalidServerUrl, SettingsNote.Type.Critical);
 
-            if (customServerEnabled && !hasValidSocketServerUrl)
-                return new SettingsNote.Data(DebugSettingsStrings.InvalidSocketServerUrl, SettingsNote.Type.Critical);
+            if (customServerEnabled && !hasValidSpectatorSocketServerUrl)
+                return new SettingsNote.Data(DebugSettingsStrings.InvalidSpectatorSocketServerUrl, SettingsNote.Type.Critical);
+
+            if (customServerEnabled && !hasValidMultiplayerSocketServerUrl)
+                return new SettingsNote.Data(DebugSettingsStrings.InvalidMultiplayerSocketServerUrl, SettingsNote.Type.Critical);
+
+            if (customServerEnabled && !hasValidMetadataSocketServerUrl)
+                return new SettingsNote.Data(DebugSettingsStrings.InvalidMetadataSocketServerUrl, SettingsNote.Type.Critical);
 
             if (hasPendingChanges)
                 return new SettingsNote.Data(DebugSettingsStrings.RestartRequiredToApplyServerChanges, SettingsNote.Type.Warning);
@@ -163,7 +200,9 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
         private ServerSettingsSnapshot createSnapshot() => new ServerSettingsSnapshot(
             useCustomServer.Current.Value,
             customServerUrl.Current.Value,
-            customServerSocketUrl.Current.Value,
+            customServerSpectatorSocketUrl.Current.Value,
+            customServerMultiplayerSocketUrl.Current.Value,
+            customServerMetadataSocketUrl.Current.Value,
             customServerClientID.Current.Value,
             customServerClientSecret.Current.Value,
             rememberCustomServerSecret.Current.Value
@@ -211,7 +250,9 @@ namespace osu.Game.Overlays.Settings.Sections.DebugSettings
         private readonly record struct ServerSettingsSnapshot(
             bool UseCustomServer,
             string CustomServerUrl,
-            string CustomServerSocketUrl,
+            string CustomServerSpectatorSocketUrl,
+            string CustomServerMultiplayerSocketUrl,
+            string CustomServerMetadataSocketUrl,
             string CustomServerClientID,
             string CustomServerClientSecret,
             bool RememberCustomServerSecret

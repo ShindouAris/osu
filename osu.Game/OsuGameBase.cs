@@ -110,7 +110,9 @@ namespace osu.Game
             if (LocalConfig?.Get<bool>(OsuSetting.UseCustomServer) == true)
             {
                 if (tryCreateCustomEndpoints(LocalConfig.Get<string>(OsuSetting.CustomServerUrl),
-                                             LocalConfig.Get<string>(OsuSetting.CustomServerSocketUrl),
+                                             LocalConfig.Get<string>(OsuSetting.CustomServerSpectatorSocketUrl),
+                                             LocalConfig.Get<string>(OsuSetting.CustomServerMultiplayerSocketUrl),
+                                             LocalConfig.Get<string>(OsuSetting.CustomServerMetadataSocketUrl),
                                              LocalConfig.Get<string>(OsuSetting.CustomServerClientID),
                                              LocalConfig.Get<string>(OsuSetting.CustomServerClientSecret),
                                              out var customEndpoints))
@@ -120,7 +122,7 @@ namespace osu.Game
             return UseDevelopmentServer ? new DevelopmentEndpointConfiguration() : new ProductionEndpointConfiguration();
         }
 
-        private static bool tryCreateCustomEndpoints(string rawServerUrl, string rawSocketServerUrl, string clientID, string clientSecret, out EndpointConfiguration endpoints)
+        private static bool tryCreateCustomEndpoints(string rawServerUrl, string rawSpectatorSocketServerUrl, string rawMultiplayerSocketServerUrl, string rawMetadataSocketServerUrl, string clientID, string clientSecret, out EndpointConfiguration endpoints)
         {
             endpoints = null!;
             string? normalisedServerUrl = normaliseServerUrl(rawServerUrl);
@@ -128,15 +130,14 @@ namespace osu.Game
             if (string.IsNullOrEmpty(normalisedServerUrl))
                 return false;
 
-            string normalisedSocketServerUrl = normalisedServerUrl;
+            if (!normaliseSocketServerUrl(rawSpectatorSocketServerUrl, normalisedServerUrl, out string normalisedSpectatorSocketServerUrl))
+                return false;
 
-            if (!string.IsNullOrWhiteSpace(rawSocketServerUrl))
-            {
-                normalisedSocketServerUrl = normaliseServerUrl(rawSocketServerUrl) ?? string.Empty;
+            if (!normaliseSocketServerUrl(rawMultiplayerSocketServerUrl, normalisedServerUrl, out string normalisedMultiplayerSocketServerUrl))
+                return false;
 
-                if (string.IsNullOrEmpty(normalisedSocketServerUrl))
-                    return false;
-            }
+            if (!normaliseSocketServerUrl(rawMetadataSocketServerUrl, normalisedServerUrl, out string normalisedMetadataSocketServerUrl))
+                return false;
 
             endpoints = new EndpointConfiguration
             {
@@ -144,12 +145,28 @@ namespace osu.Game
                 APIUrl = normalisedServerUrl,
                 APIClientID = clientID,
                 APIClientSecret = clientSecret,
-                SpectatorUrl = $@"{normalisedSocketServerUrl}/spectator",
-                MultiplayerUrl = $@"{normalisedSocketServerUrl}/multiplayer",
-                MetadataUrl = $@"{normalisedSocketServerUrl}/metadata",
+                SpectatorUrl = $@"{normalisedSpectatorSocketServerUrl}/spectator",
+                MultiplayerUrl = $@"{normalisedMultiplayerSocketServerUrl}/multiplayer",
+                MetadataUrl = $@"{normalisedMetadataSocketServerUrl}/metadata",
                 BeatmapSubmissionServiceUrl = normalisedServerUrl,
             };
 
+            return true;
+        }
+
+        private static bool normaliseSocketServerUrl(string? rawSocketServerUrl, string fallbackServerUrl, out string normalisedSocketServerUrl)
+        {
+            normalisedSocketServerUrl = fallbackServerUrl;
+
+            if (string.IsNullOrWhiteSpace(rawSocketServerUrl))
+                return true;
+
+            string? normalised = normaliseServerUrl(rawSocketServerUrl);
+
+            if (string.IsNullOrEmpty(normalised))
+                return false;
+
+            normalisedSocketServerUrl = normalised;
             return true;
         }
 

@@ -102,9 +102,12 @@ namespace osu.Game.Configuration
 
             SetDefault(OsuSetting.UseCustomServer, false);
             SetDefault(OsuSetting.CustomServerUrl, string.Empty);
-            SetDefault(OsuSetting.CustomServerSocketUrl, string.Empty);
+            SetDefault(OsuSetting.CustomServerSpectatorSocketUrl, string.Empty);
+            SetDefault(OsuSetting.CustomServerMultiplayerSocketUrl, string.Empty);
+            SetDefault(OsuSetting.CustomServerMetadataSocketUrl, string.Empty);
             SetDefault(OsuSetting.CustomServerClientID, string.Empty);
             SetDefault(OsuSetting.CustomServerClientSecret, string.Empty);
+            SetDefault(OsuSetting.CustomServerSocketUrl, string.Empty);
 
             SetDefault(OsuSetting.RememberCustomServerSecret, false).ValueChanged += enabled =>
             {
@@ -281,6 +284,20 @@ namespace osu.Game.Configuration
 
             int combined = year * 10000 + monthDay;
 
+            if (!string.IsNullOrEmpty(Get<string>(OsuSetting.CustomServerSocketUrl)))
+            {
+                string legacySocketUrl = Get<string>(OsuSetting.CustomServerSocketUrl);
+
+                if (string.IsNullOrEmpty(Get<string>(OsuSetting.CustomServerSpectatorSocketUrl)))
+                    SetValue(OsuSetting.CustomServerSpectatorSocketUrl, legacySocketUrl);
+
+                if (string.IsNullOrEmpty(Get<string>(OsuSetting.CustomServerMultiplayerSocketUrl)))
+                    SetValue(OsuSetting.CustomServerMultiplayerSocketUrl, legacySocketUrl);
+
+                if (string.IsNullOrEmpty(Get<string>(OsuSetting.CustomServerMetadataSocketUrl)))
+                    SetValue(OsuSetting.CustomServerMetadataSocketUrl, legacySocketUrl);
+            }
+
             if (combined < 20250214)
             {
                 // UI scaling on mobile platforms has been internally adjusted such that 1x UI scale looks correctly zoomed in than before.
@@ -449,10 +466,17 @@ namespace osu.Game.Configuration
         NotifyOnFriendPresenceChange,
         UseCustomServer,
         CustomServerUrl,
-        CustomServerSocketUrl,
+        CustomServerSpectatorSocketUrl,
+        CustomServerMultiplayerSocketUrl,
+        CustomServerMetadataSocketUrl,
         CustomServerClientID,
         CustomServerClientSecret,
         RememberCustomServerSecret,
+
+        /// <summary>
+        /// Legacy single socket URL used by older versions before socket endpoints were split.
+        /// </summary>
+        CustomServerSocketUrl,
         UIHoldActivationDelay,
         HitLighting,
         StarFountains,
