@@ -19,7 +19,7 @@ namespace osu.Game.Rulesets.Mods
         public override IconUsage? Icon => OsuIcon.ModDifficultyAdjust;
         public override ModType Type => ModType.DifficultyIncrease;
         public override double ScoreMultiplier => 1.2;
-        public override LocalisableString Description => "Reading circle now got a little bit harder...";
+        public override LocalisableString Description => "Circles Hell, Really?";
         public override Type[] IncompatibleMods => new[] { typeof(ModEasy), typeof(ModDifficultyAdjust), typeof(ModHardRock) };
         public override bool Ranked => true;
         public override bool ValidForFreestyleAsRequiredMod => true;
@@ -27,7 +27,7 @@ namespace osu.Game.Rulesets.Mods
         [SettingSource("Approach Rate", "The approach rate to set when this mod is active.", SettingControlType = typeof(MultiplierSettingsSlider))]
         public BindableNumber<double> ApproachRate { get; } = new BindableDouble(1.0)
         {
-            MinValue = 0,
+            MinValue = -11,
             MaxValue = 3,
             Precision = 0.1,
         };
