@@ -18,7 +18,6 @@ namespace osu.Game.Rulesets.Mods
         public override string Acronym => "LR";
         public override IconUsage? Icon => OsuIcon.ModDifficultyAdjust;
         public override ModType Type => ModType.DifficultyIncrease;
-        public override double ScoreMultiplier => 1.2;
         public override LocalisableString Description => "Circles Hell, Really?";
         public override Type[] IncompatibleMods => new[] { typeof(ModEasy), typeof(ModDifficultyAdjust), typeof(ModHardRock) };
         public override bool Ranked => true;

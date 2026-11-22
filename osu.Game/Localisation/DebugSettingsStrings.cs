@@ -15,6 +15,26 @@ namespace osu.Game.Localisation
         public static LocalisableString ImportFiles => new TranslatableString(getKey(@"import_files"), @"Import files");
 
         /// <summary>
+        /// "Import selected file"
+        /// </summary>
+        public static LocalisableString ImportSelectedFile => new TranslatableString(getKey(@"import_selected_file"), @"Import selected file");
+
+        /// <summary>
+        /// "Import all files from directory"
+        /// </summary>
+        public static LocalisableString ImportAllFilesFromDirectory => new TranslatableString(getKey(@"import_all_files_from_directory"), @"Import all files from directory");
+
+        /// <summary>
+        /// "Imports all osu! files from selected directory"
+        /// </summary>
+        public static LocalisableString ImportAllFilesFromDirectoryTooltip => new TranslatableString(getKey(@"import_all_files_from_directory_tooltip"), @"Imports all osu! files from selected directory");
+
+        /// <summary>
+        /// "Select a file"
+        /// </summary>
+        public static LocalisableString SelectFile => new TranslatableString(getKey(@"select_file"), @"Select a file");
+
+        /// <summary>
         /// "Run latency certifier"
         /// </summary>
         public static LocalisableString RunLatencyCertifier => new TranslatableString(getKey(@"run_latency_certifier"), @"Run latency certifier");
@@ -129,6 +149,6 @@ namespace osu.Game.Localisation
         /// </summary>
         public static LocalisableString RestartRequiredForServerChangeConfirmation => new TranslatableString(getKey(@"restart_required_for_server_change_confirmation"), @"To apply server changes, osu! will close. Please open it again.");
 
-        private static string getKey(string key) => $"{prefix}:{key}";
+        private static string getKey(string key) => $@"{prefix}:{key}";
     }
 }

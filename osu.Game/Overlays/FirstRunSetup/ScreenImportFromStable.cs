@@ -139,7 +139,7 @@ namespace osu.Game.Overlays.FirstRunSetup
                     ? FirstRunOverlayImportFromStableScreenStrings.SecondCopyWillBeMadeWindows
                     : FirstRunOverlayImportFromStableScreenStrings.SecondCopyWillBeMadeOtherPlatforms;
                 copyInformation.AddText(@" "); // just to ensure correct spacing
-                copyInformation.AddLink(GeneralSettingsStrings.ChangeFolderLocation, () =>
+                copyInformation.AddLink(LocalisableString.Interpolate($@"{GeneralSettingsStrings.ChangeFolderLocation}..."), () =>
                 {
                     game?.PerformFromScreen(menu => menu.Push(new MigrationSelectScreen()));
                 });
@@ -227,7 +227,7 @@ namespace osu.Game.Overlays.FirstRunSetup
 
                     int count = task.GetResultSafely();
 
-                    LabelText = LocalisableString.Interpolate($"{title} ({FirstRunOverlayImportFromStableScreenStrings.Items(count)})");
+                    LabelText = LocalisableString.Interpolate($"{title} ({CommonStrings.ItemsCount(count)})");
                 }));
             }
         }

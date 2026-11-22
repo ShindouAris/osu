@@ -26,6 +26,7 @@ using osu.Framework.Input.Handlers;
 using osu.Framework.Input.Handlers.Joystick;
 using osu.Framework.Input.Handlers.Midi;
 using osu.Framework.Input.Handlers.Mouse;
+using osu.Framework.Input.Handlers.Pen;
 using osu.Framework.Input.Handlers.Tablet;
 using osu.Framework.Input.Handlers.Touch;
 using osu.Framework.IO.Stores;
@@ -53,6 +54,7 @@ using osu.Game.Online.Chat;
 using osu.Game.Online.Leaderboards;
 using osu.Game.Online.Metadata;
 using osu.Game.Online.Multiplayer;
+using osu.Game.Online.RankedPlay;
 using osu.Game.Online.Spectator;
 using osu.Game.Overlays;
 using osu.Game.Overlays.Settings;
@@ -283,13 +285,17 @@ namespace osu.Game
         public readonly Bindable<Dictionary<ModType, IReadOnlyList<Mod>>> AvailableMods = new Bindable<Dictionary<ModType, IReadOnlyList<Mod>>>(new Dictionary<ModType, IReadOnlyList<Mod>>());
 
         private BeatmapDifficultyCache difficultyCache;
+
         private IBeatmapUpdater beatmapUpdater;
+        private OnlineAssetCachingStore onlineAssetStore;
 
         private UserLookupCache userCache;
         private BeatmapLookupCache beatmapCache;
         protected LeaderboardManager LeaderboardManager { get; private set; }
 
         private RulesetConfigCache rulesetConfigCache;
+
+        private RankedPlayDivisionStore rankedPlayDivisionStore;
 
         private SessionAverageHitErrorTracker hitErrorTracker;
 
@@ -368,6 +374,8 @@ namespace osu.Game
             largeStore.AddTextureSource(Host.CreateTextureLoaderStore(CreateOnlineStore()));
             dependencies.Cache(largeStore);
 
+            dependencies.Cache(onlineAssetStore = new OnlineAssetCachingStore(Host, realm));
+
             dependencies.CacheAs(LocalConfig);
             dependencies.CacheAs<IGameplaySettings>(LocalConfig);
 
@@ -438,6 +446,8 @@ namespace osu.Game
 
             dependencies.CacheAs<IRulesetConfigCache>(rulesetConfigCache = new RulesetConfigCache(realm, RulesetStore));
 
+            dependencies.CacheAs<IRankedPlayDivisionStore>(rankedPlayDivisionStore = new RankedPlayDivisionStore());
+
             var powerStatus = CreateBatteryInfo();
             if (powerStatus != null)
                 dependencies.CacheAs(powerStatus);
@@ -472,6 +482,8 @@ namespace osu.Game
             base.Content.Add(metadataClient);
 
             base.Content.Add(rulesetConfigCache);
+
+            base.Content.Add(rankedPlayDivisionStore);
 
             PreviewTrackManager previewTrackManager;
             dependencies.Cache(previewTrackManager = new PreviewTrackManager(BeatmapManager.BeatmapTrackStore));
@@ -676,7 +688,7 @@ namespace osu.Game
         /// <param name="path">The path to migrate to.</param>
         /// <returns>Whether migration succeeded to completion. If <c>false</c>, some files were left behind.</returns>
         /// <exception cref="TimeoutException"></exception>
-        public bool Migrate(string path)
+        public bool MigrateUserData(string path)
         {
             Logger.Log($@"Migrating osu! data from ""{Storage.GetFullPath(string.Empty)}"" to ""{path}""...");
 
@@ -757,6 +769,9 @@ namespace osu.Game
 
                 case TouchHandler th:
                     return new TouchSettings(th);
+
+                case PenHandler ph:
+                    return new PenSettings(ph);
 
                 case MidiHandler:
                     return new InputSubsection(handler);
@@ -871,6 +886,8 @@ namespace osu.Game
             LocalConfig?.Dispose();
 
             beatmapUpdater?.Dispose();
+
+            onlineAssetStore?.Dispose();
 
             realm?.Dispose();
 

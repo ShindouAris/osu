@@ -212,6 +212,8 @@ namespace osu.Game.Screens.Play
             ScoreProcessor.NewJudgement += _ => ScoreProcessor.PopulateScore(Score.ScoreInfo);
             ScoreProcessor.OnResetFromReplayFrame += () => ScoreProcessor.PopulateScore(Score.ScoreInfo);
 
+            HealthProcessor.NewJudgement += _ => HealthProcessor.PopulateScore(Score.ScoreInfo);
+
             gameActive.BindValueChanged(_ => updatePauseOnFocusLostState(), true);
         }
 
@@ -287,6 +289,10 @@ namespace osu.Game.Screens.Play
             dependencies.CacheAs(GameplayState = new GameplayState(playableBeatmap, ruleset, gameplayMods, Score, ScoreProcessor, HealthProcessor, Beatmap.Value.Storyboard, PlayingState));
 
             var rulesetSkinProvider = new RulesetSkinProvidingContainer(ruleset, playableBeatmap, Beatmap.Value.Skin);
+            config.BindWith(OsuSetting.BeatmapSkins, rulesetSkinProvider.BeatmapSkins);
+            config.BindWith(OsuSetting.BeatmapColours, rulesetSkinProvider.BeatmapColours);
+            config.BindWith(OsuSetting.BeatmapHitsounds, rulesetSkinProvider.BeatmapHitsounds);
+
             GameplayClockContainer.Add(new GameplayScrollWheelHandling());
 
             // needs to exist in frame stable content, but is used by underlay layers so make sure assigned early.
@@ -1194,6 +1200,7 @@ namespace osu.Game.Screens.Play
             // Eagerly clean these up as disposal of child components is asynchronous and may leave sounds playing beyond user expectations.
             failAnimationContainer?.Stop();
             PauseOverlay?.StopAllSamples();
+            FailOverlay?.StopAllSamples();
 
             if (LoadedBeatmapSuccessfully && !GameplayState.HasPassed)
             {

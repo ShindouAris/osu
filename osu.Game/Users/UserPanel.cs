@@ -3,8 +3,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using osu.Framework.Allocation;
+using osu.Framework.Extensions;
+using osu.Framework.Extensions.LocalisationExtensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
@@ -22,12 +25,15 @@ using osu.Game.Online.API.Requests.Responses;
 using osu.Game.Online.Chat;
 using osu.Game.Resources.Localisation.Web;
 using osu.Game.Localisation;
+using osu.Game.Online.Matchmaking;
 using osu.Game.Online.Metadata;
 using osu.Game.Online.Multiplayer;
 using osu.Game.Screens;
+using osu.Game.Screens.OnlinePlay.Matchmaking.Queue;
 using osu.Game.Screens.Play;
 using osu.Game.Users.Drawables;
 using osuTK;
+using osu.Game.Online.Rooms;
 
 namespace osu.Game.Users
 {
@@ -83,6 +89,9 @@ namespace osu.Game.Users
         [Resolved]
         private MetadataClient? metadataClient { get; set; }
 
+        [Resolved]
+        private QueueController? queueController { get; set; }
+
         [BackgroundDependencyLoader]
         private void load()
         {
@@ -114,12 +123,12 @@ namespace osu.Game.Users
         /// <summary>
         /// Panel background container. Can be null if a panel doesn't want a background under it's layout
         /// </summary>
-        protected virtual Drawable? CreateBackground() => Background = new UserCoverBackground
+        protected virtual Drawable? CreateBackground() => Background = new CoverBackground
         {
             RelativeSizeAxes = Axes.Both,
             Anchor = Anchor.Centre,
             Origin = Anchor.Centre,
-            User = User
+            Model = User
         };
 
         protected OsuSpriteText CreateUsername() => new OsuSpriteText
@@ -127,6 +136,16 @@ namespace osu.Game.Users
             Font = OsuFont.GetFont(size: 16, weight: FontWeight.Bold),
             Shadow = false,
             Text = User.Username,
+        };
+
+        protected OsuSpriteText CreateRank() => new OsuSpriteText
+        {
+            Font = OsuFont.GetFont(size: 16, weight: FontWeight.SemiBold),
+            Shadow = false,
+            // We can't colour the properly because we don't have the required percentile data.
+
+            Colour = Colours.BlueLighter,
+            Text = (User.Rank?.Rank ?? User.Statistics.GlobalRank)?.ToLocalisableString("\\##,##0") ?? string.Empty,
         };
 
         protected UpdateableAvatar CreateAvatar() => new UpdateableAvatar(User, false);
@@ -180,13 +199,52 @@ namespace osu.Game.Users
                                 multiplayerClient!.InvitePlayer(User.Id);
                         }));
                     }
+
+                    if (canDuelUser())
+                    {
+                        // This is done in a blocking manner because:
+                        //   - `QueueController` fetches available pools immediately upon connecting,
+                        //   - the check in `canDuelUser` below ensures that the task completes immediately,
+                        //     meaning that the pools were returned from the local cache instead of being
+                        //     fetched.
+                        var pools = queueController.GetMatchmakingPools().GetResultSafely();
+
+                        if (pools.Count > 0)
+                        {
+                            items.Add(new OsuMenuItem(ContextMenuStrings.DuelPlayer)
+                            {
+                                Items = pools
+                                        .Where(p => p.Type == MatchmakingPoolType.RankedPlay)
+                                        .Select(p => new OsuMenuItem(p.DisplayName, MenuItemType.Standard, () =>
+                                        {
+                                            if (canDuelUser())
+                                                queueController?.IssueDuel(p, User.Id);
+                                        })).ToArray()
+                            });
+                        }
+                    }
                 }
 
                 return items.ToArray();
 
                 bool isUserOnline() => metadataClient?.GetPresence(User.OnlineID) != null;
-                bool canInviteUser() => isUserOnline() && multiplayerClient?.Room?.Users.All(u => u.UserID != User.Id) == true;
+                bool canInviteUser() => isUserOnline() && multiplayerClient?.Room?.Users.All(u => u.UserID != User.Id) == true && multiplayerClient?.Room?.Settings.MatchType.IsMatchmakingType() != true;
                 bool isUserBlocked() => api.LocalUserState.Blocks.Any(b => b.TargetID == User.OnlineID);
+
+                [MemberNotNullWhen(true, nameof(queueController))]
+                bool canDuelUser()
+                {
+                    if (queueController == null)
+                        return false;
+
+                    var task = queueController.GetMatchmakingPools();
+
+                    // Don't attempt to show pools in the context menu if for some reason the
+                    // get pools task didn't complete immediately. This is done in order not to
+                    // block it from appearing right after mouse click because of a long-running
+                    // network fetch.
+                    return isUserOnline() && task.IsCompletedSuccessfully && multiplayerClient?.Room?.Settings.MatchType.IsMatchmakingType() != true;
+                }
             }
         }
 

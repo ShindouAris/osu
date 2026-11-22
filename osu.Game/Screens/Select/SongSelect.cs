@@ -25,6 +25,7 @@ using osu.Framework.Input;
 using osu.Framework.Input.Bindings;
 using osu.Framework.Input.Events;
 using osu.Framework.Input.StateChanges;
+using osu.Framework.Localisation;
 using osu.Framework.Logging;
 using osu.Framework.Screens;
 using osu.Framework.Threading;
@@ -32,6 +33,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Collections;
 using osu.Game.Configuration;
 using osu.Game.Database;
+using osu.Game.Graphics;
 using osu.Game.Graphics.Carousel;
 using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Cursor;
@@ -52,7 +54,6 @@ using osu.Game.Screens.Play;
 using osu.Game.Screens.Ranking;
 using osu.Game.Skinning;
 using osu.Game.Utils;
-using osuTK;
 using osuTK.Graphics;
 using osuTK.Input;
 
@@ -131,8 +132,6 @@ namespace osu.Game.Screens.Select
 
         public override bool? ApplyModTrackAdjustments => true;
 
-        public override bool ShowFooter => true;
-
         private Sample? errorSample;
 
         [Resolved]
@@ -171,6 +170,11 @@ namespace osu.Game.Screens.Select
 
         private IDisposable? modSelectOverlayRegistration;
 
+        protected SongSelect()
+        {
+            FooterContent.Value = ScreenFooterContent.Argon(leftButtons: CreateFooterButtons);
+        }
+
         [BackgroundDependencyLoader]
         private void load(AudioManager audio, OsuConfigManager config)
         {
@@ -178,7 +182,7 @@ namespace osu.Game.Screens.Select
 
             AddRangeInternal(new Drawable[]
             {
-                new GlobalScrollAdjustsVolume(),
+                new ScrollAdjustsVolume(),
                 onlineLookupSource,
                 mainContent = new Container
                 {
@@ -235,7 +239,6 @@ namespace osu.Game.Screens.Select
                                                     wedgesContainer = new FillFlowContainer
                                                     {
                                                         RelativeSizeAxes = Axes.Both,
-                                                        Spacing = new Vector2(0f, 4f),
                                                         Direction = FillDirection.Vertical,
                                                         Children = new Drawable[]
                                                         {
@@ -243,6 +246,11 @@ namespace osu.Game.Screens.Select
                                                             {
                                                                 TopPadding = TopPadding,
                                                             }),
+                                                            new InputBlockingContainer
+                                                            {
+                                                                RelativeSizeAxes = Axes.X,
+                                                                Height = 4
+                                                            },
                                                             new ShearAligningWrapper(detailsArea = new BeatmapDetailsArea()),
                                                         },
                                                     },
@@ -315,7 +323,7 @@ namespace osu.Game.Screens.Select
             LoadComponent(modSelectOverlay = CreateModSelectOverlay());
 
             configBackgroundBlur = config.GetBindable<bool>(OsuSetting.SongSelectBackgroundBlur);
-            configBackgroundBlur.BindValueChanged(e =>
+            configBackgroundBlur.BindValueChanged(_ =>
             {
                 if (!this.IsCurrentScreen())
                     return;
@@ -346,12 +354,13 @@ namespace osu.Game.Screens.Select
         /// </summary>
         protected abstract void OnStart();
 
-        public override IReadOnlyList<ScreenFooterButton> CreateFooterButtons() => new ScreenFooterButton[]
+        public virtual IReadOnlyList<ScreenFooterButton> CreateFooterButtons() => new ScreenFooterButton[]
         {
             new FooterButtonMods(modSelectOverlay)
             {
                 Hotkey = GlobalAction.ToggleModSelection,
-                Current = Mods,
+                Mods = Mods,
+                Ruleset = Ruleset,
                 RequestDeselectAllMods = () =>
                 {
                     if (modSelectOverlay.State.Value == Visibility.Visible)
@@ -458,7 +467,11 @@ namespace osu.Game.Screens.Select
                 if (Beatmap.Value.BeatmapInfo.Equals(debounceQueuedSelection))
                     return;
 
-                Beatmap.Value = beatmaps.GetWorkingBeatmap(debounceQueuedSelection);
+                var workingBeatmap = beatmaps.GetWorkingBeatmap(debounceQueuedSelection);
+                if (!checkBeatmapValidForSelection(workingBeatmap.BeatmapInfo))
+                    return;
+
+                Beatmap.Value = workingBeatmap;
             }
             finally
             {
@@ -708,6 +721,7 @@ namespace osu.Game.Screens.Select
         private void onArrivingAtScreen()
         {
             modSelectOverlay.Beatmap.BindTo(Beatmap);
+            modSelectOverlay.Ruleset.BindTo(Ruleset);
             // required due to https://github.com/ppy/osu-framework/issues/3218
             modSelectOverlay.SelectedMods.Disabled = false;
             modSelectOverlay.SelectedMods.BindTo(Mods);
@@ -755,7 +769,9 @@ namespace osu.Game.Screens.Select
             Beatmap.ValueChanged -= updateVariousState;
 
             modSelectOverlay.SelectedMods.UnbindFrom(Mods);
+            modSelectOverlay.Ruleset.UnbindFrom(Ruleset);
             modSelectOverlay.Beatmap.UnbindFrom(Beatmap);
+            modSelectOverlay.Hide();
 
             updateWedgeVisibility();
 
@@ -865,6 +881,7 @@ namespace osu.Game.Screens.Select
         public bool IsFiltering => carousel.IsFiltering || filterDebounce?.State == ScheduledDelegate.RunState.Waiting;
 
         private const double filter_delay = 250;
+        public const double REVEAL_BACKGROUND_DELAY = 200;
 
         private ScheduledDelegate? filterDebounce;
 
@@ -888,13 +905,9 @@ namespace osu.Game.Screens.Select
 
             CarouselItemsPresented = true;
 
-            int count = carousel.MatchedBeatmapsCount;
-
             updateNoResultsPlaceholder();
 
-            // Intentionally not localised until we have proper support for this (see https://github.com/ppy/osu-framework/pull/4918
-            // but also in this case we want support for formatting a number within a string).
-            FilterControl.StatusText = count != 1 ? $"{count:#,0} matches" : $"{count:#,0} match";
+            FilterControl.StatusText = SongSelectStrings.MatchesCount(carousel.MatchedBeatmapsCount);
 
             // If there's already a selection update in progress, let's not interrupt it.
             // Interrupting could cause the debounce interval to be reduced.
@@ -985,7 +998,7 @@ namespace osu.Game.Screens.Select
                     updateBackgroundDim();
 
                     Footer?.Hide();
-                }, 200);
+                }, REVEAL_BACKGROUND_DELAY);
             }
 
             return base.OnMouseDown(e);
@@ -1152,7 +1165,7 @@ namespace osu.Game.Screens.Select
 
         #region Implementation of ISongSelect
 
-        void ISongSelect.Search(string query) => FilterControl.Search(query);
+        void ISongSelect.AddToSearch(string query) => FilterControl.AddToSearch(query);
 
         bool ISongSelect.CanPresentScore => true;
 
@@ -1179,6 +1192,7 @@ namespace osu.Game.Screens.Select
 
         void IHandlePresentBeatmap.PresentBeatmap(WorkingBeatmap workingBeatmap, RulesetInfo ruleset)
         {
+            unscopeBeatmapSet(restorePreviousSelection: false);
             cancelDebounceSelection();
 
             var beatmapInfo = workingBeatmap.BeatmapInfo;
@@ -1224,7 +1238,7 @@ namespace osu.Game.Screens.Select
 
             if (beatmap.OnlineID > 0)
             {
-                yield return new OsuMenuItem(CommonStrings.Details, MenuItemType.Standard, () => beatmapOverlay?.FetchAndShowBeatmap(beatmap.OnlineID));
+                yield return new OsuMenuItem(LocalisableString.Interpolate($@"{CommonStrings.Details}..."), MenuItemType.Standard, () => beatmapOverlay?.FetchAndShowBeatmap(beatmap.OnlineID));
 
                 if (beatmap.GetOnlineURL(api, Ruleset.Value) is string url)
                     yield return new OsuMenuItem(CommonStrings.CopyLink, MenuItemType.Standard, () => (game as OsuGame)?.CopyToClipboard(url));
@@ -1243,7 +1257,7 @@ namespace osu.Game.Screens.Select
                                        .AsEnumerable()
                                        .Select(c => new CollectionToggleMenuItem(c.ToLive(realm), beatmap)).Cast<OsuMenuItem>().ToList();
 
-            collectionItems.Add(new OsuMenuItem(CommonStrings.Manage, MenuItemType.Standard, () => manageCollectionsDialog?.Show()));
+            collectionItems.Add(new OsuMenuItem(LocalisableString.Interpolate($@"{CommonStrings.Manage}..."), MenuItemType.Standard, () => manageCollectionsDialog?.Show()));
 
             yield return new OsuMenuItem(CommonStrings.Collections) { Items = collectionItems };
         }
@@ -1252,11 +1266,7 @@ namespace osu.Game.Screens.Select
 
         public void Delete(BeatmapSetInfo beatmapSet) => dialogOverlay?.Push(new BeatmapDeleteDialog(beatmapSet));
 
-        public void RestoreAllHidden(BeatmapSetInfo beatmapSet)
-        {
-            foreach (var b in beatmapSet.Beatmaps)
-                beatmaps.Restore(b);
-        }
+        public void RestoreAllHidden(BeatmapSetInfo beatmapSet) => beatmaps.Restore(beatmapSet);
 
         private GroupedBeatmap? beforeScopedSelection;
 
@@ -1270,12 +1280,14 @@ namespace osu.Game.Screens.Select
             scopedBeatmapSet.Value = beatmapSet;
         }
 
-        public void UnscopeBeatmapSet()
+        public void UnscopeBeatmapSet() => unscopeBeatmapSet(restorePreviousSelection: true);
+
+        private void unscopeBeatmapSet(bool restorePreviousSelection)
         {
             if (scopedBeatmapSet.Value == null)
                 return;
 
-            if (beforeScopedSelection != null)
+            if (beforeScopedSelection != null && restorePreviousSelection)
                 queueBeatmapSelection(beforeScopedSelection);
 
             scopedBeatmapSet.Value = null;

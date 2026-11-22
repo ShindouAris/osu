@@ -7,6 +7,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using osu.Framework.Allocation;
 using osu.Framework.Platform;
 using osu.Game.Configuration;
 using osu.Game.Online.API;
@@ -269,7 +270,6 @@ namespace osu.Game.Tests.NonVisual
             public TestOsuGameWithRealApi(bool withBeatmap = false)
                 : base(withBeatmap)
             {
-                API = null;
             }
         }
     }

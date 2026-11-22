@@ -39,7 +39,6 @@ namespace osu.Game.Rulesets.Osu.Mods
         public override ModType Type => ModType.Conversion;
         public override IconUsage? Icon => OsuIcon.ModTargetPractice;
         public override LocalisableString Description => @"Practice keeping up with the beat of the song.";
-        public override double ScoreMultiplier => 0.1;
 
         public override Type[] IncompatibleMods => base.IncompatibleMods.Concat(new[]
         {
@@ -425,7 +424,10 @@ namespace osu.Game.Rulesets.Osu.Mods
             IList<HitSampleInfo> samples;
 
             if (sampleObj is IHasRepeats slider)
-                samples = slider.NodeSamples[nodeIndexFromTime(slider, time - sampleObj.StartTime)];
+            {
+                int nodeIndex = Math.Clamp(nodeIndexFromTime(slider, time - sampleObj.StartTime), 0, slider.NodeSamples.Count - 1);
+                samples = slider.NodeSamples[nodeIndex];
+            }
             else
                 samples = sampleObj.Samples;
 

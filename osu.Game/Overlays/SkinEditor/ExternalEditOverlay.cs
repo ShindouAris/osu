@@ -13,6 +13,7 @@ using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
 using osu.Framework.Input.Events;
+using osu.Framework.Localisation;
 using osu.Framework.Logging;
 using osu.Framework.Platform;
 using osu.Framework.Testing;
@@ -107,7 +108,7 @@ namespace osu.Game.Overlays.SkinEditor
                 throw new InvalidOperationException("Cannot start multiple concurrent external edits!");
 
             Show();
-            showSpinner("Mounting external skin...");
+            showSpinner(EditorStrings.ExternalEditExporting);
             setGlobalSkinDisabled(true);
 
             await Task.Delay(500).ConfigureAwait(true);
@@ -120,7 +121,7 @@ namespace osu.Game.Overlays.SkinEditor
             {
                 Logger.Log($"Failed to initialize external edit operation: {ex}", LoggingTarget.Database, LogLevel.Error);
                 setGlobalSkinDisabled(false);
-                Schedule(() => showSpinner("Export failed!"));
+                Schedule(() => showSpinner(EditorStrings.ExportFailed));
                 Scheduler.AddDelayed(Hide, 1000);
                 return Task.FromException(ex);
             }
@@ -131,7 +132,7 @@ namespace osu.Game.Overlays.SkinEditor
                 {
                     new OsuSpriteText
                     {
-                        Text = "Skin is mounted externally",
+                        Text = SkinEditorStrings.SkinMountedExternally,
                         Font = OsuFont.Default.With(size: 30),
                         Anchor = Anchor.TopCentre,
                         Origin = Anchor.TopCentre,
@@ -143,11 +144,11 @@ namespace osu.Game.Overlays.SkinEditor
                         Origin = Anchor.TopCentre,
                         Width = 350,
                         AutoSizeAxes = Axes.Y,
-                        Text = "Any changes made to the exported folder will be imported to the game, including file additions, modifications and deletions.",
+                        Text = EditorStrings.ExternalEditMountedExplanation,
                     },
                     new PurpleRoundedButton
                     {
-                        Text = "Open folder",
+                        Text = EditorStrings.OpenFolder,
                         Width = 350,
                         Anchor = Anchor.TopCentre,
                         Origin = Anchor.TopCentre,
@@ -198,17 +199,20 @@ namespace osu.Game.Overlays.SkinEditor
 
             Debug.Assert(taskCompletionSource != null);
 
-            showSpinner("Cleaning up...");
+            showSpinner(EditorStrings.ExternalEditCleaningUp);
             await Task.Delay(500).ConfigureAwait(true);
+
+            Live<SkinInfo>? newSkin;
 
             try
             {
-                await editOperation!.Finish().ConfigureAwait(false);
+                newSkin = await editOperation!.Finish().ConfigureAwait(false);
+                ArgumentNullException.ThrowIfNull(newSkin);
             }
             catch (Exception ex)
             {
                 Logger.Log($"Failed to finish external edit operation: {ex}", LoggingTarget.Database, LogLevel.Error);
-                showSpinner("Import failed!");
+                showSpinner(EditorStrings.ImportFailed);
                 Scheduler.AddDelayed(Hide, 1000);
                 setGlobalSkinDisabled(false);
                 taskCompletionSource.SetException(ex);
@@ -219,12 +223,19 @@ namespace osu.Game.Overlays.SkinEditor
             Schedule(() =>
             {
                 var oldSkin = skinManager.CurrentSkin!.Value;
-                var newSkinInfo = oldSkin.SkinInfo.PerformRead(s => s);
 
                 // Create a new skin instance to ensure the skin is reloaded
                 // If there's a better way to reload the skin, this should be replaced with it.
                 setGlobalSkinDisabled(false);
-                skinManager.CurrentSkin.Value = newSkinInfo.CreateInstance(skinManager);
+                skinManager.CurrentSkin.Value = newSkin.PerformRead(s =>
+                {
+                    // Even though we are 100% on an update thread, we need to wait for realm callbacks to fire (to correctly invalidate caches in RealmBackedResourceStore).
+                    // See https://github.com/realm/realm-dotnet/discussions/2634#discussioncomment-2483573 for further discussion.
+                    // This is the best we can do for now.
+                    s.Realm!.Refresh();
+
+                    return s.CreateInstance(skinManager);
+                });
 
                 oldSkin.Dispose();
 
@@ -275,7 +286,7 @@ namespace osu.Game.Overlays.SkinEditor
             return base.OnPressed(e);
         }
 
-        private void showSpinner(string text)
+        private void showSpinner(LocalisableString text)
         {
             foreach (var b in flow.ChildrenOfType<RoundedButton>())
                 b.Enabled.Value = false;

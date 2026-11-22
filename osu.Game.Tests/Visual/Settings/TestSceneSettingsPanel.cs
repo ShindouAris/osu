@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using osu.Framework.Allocation;
+using osu.Framework.Extensions;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Testing;
 using osu.Game.Graphics.UserInterface;
@@ -213,10 +214,10 @@ namespace osu.Game.Tests.Visual.Settings
             AddUntilStep("wait for server settings", () => (serverSettings = settings.SectionsContainer.ChildrenOfType<ServerSettings>().SingleOrDefault()) != null);
             AddStep("grab custom server toggle", () => useCustomServerToggle = serverSettings.ChildrenOfType<FormCheckBox>().First());
 
-            AddStep("set API online on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Online)).Wait());
+            AddStep("set API online on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Online)).WaitSafely());
             AddAssert("custom server toggle disabled", () => useCustomServerToggle.Current.Disabled);
 
-            AddStep("set API offline on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Offline)).Wait());
+            AddStep("set API offline on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Offline)).WaitSafely());
             AddAssert("custom server toggle enabled", () => !useCustomServerToggle.Current.Disabled);
         }
 

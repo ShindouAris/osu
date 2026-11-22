@@ -15,6 +15,7 @@ using osu.Game.Extensions;
 using osu.Game.IO;
 using osu.Game.Skinning;
 using osu.Game.Tests.Resources;
+using osuTK.Graphics;
 using SharpCompress.Archives.Zip;
 using SharpCompress.Common;
 using SharpCompress.Writers.Zip;
@@ -186,6 +187,28 @@ namespace osu.Game.Tests.Skins.IO
             Assert.That(import.PerformRead(r => r.Files.Count), Is.EqualTo(3));
         });
 
+        [Test]
+        public Task TestImportDefaultClassicWithCustomConfiguration() => runSkinTest(async osu =>
+        {
+            // Has changes to configuration via skin.ini
+            // Intended to cover the `SetDefaultConfiguration` flow in skin construction.
+            const string filename = "Archives/modified-classic-20261113.osk";
+            Live<SkinInfo> import = await loadSkinIntoOsu(osu, new ImportTask(TestResources.OpenResource(filename), filename));
+
+            import.PerformRead(live =>
+            {
+                var skinManager = osu.Dependencies.Get<SkinManager>();
+                var skin = live.CreateInstance(skinManager);
+
+                Assert.That(skin.Configuration.ConfigDictionary[nameof(SkinConfiguration.LegacySetting.AllowSliderBallTint)], Is.EqualTo("0"));
+
+                Assert.That(skin.Configuration.ComboColours![0], Is.EqualTo(new Color4(128, 128, 128, 255)));
+                Assert.That(skin.Configuration.ComboColours![1], Is.EqualTo(new Color4(128, 128, 128, 255)));
+                Assert.That(skin.Configuration.ComboColours![2], Is.EqualTo(new Color4(128, 128, 128, 255)));
+                Assert.That(skin.Configuration.ComboColours![3], Is.EqualTo(new Color4(128, 128, 128, 255)));
+            });
+        });
+
         #endregion
 
         #region Cases where imports should be uniquely imported
@@ -292,6 +315,44 @@ namespace osu.Game.Tests.Skins.IO
                 ClassicAssert.False(s.Protected);
                 ClassicAssert.AreNotEqual(originalSkinId, s.ID);
                 ClassicAssert.AreEqual(typeof(DefaultLegacySkin), s.CreateInstance(skinManager).GetType());
+            });
+        });
+
+        [Test]
+        public Task TestExportRenameThenImportClassicSkin() => runSkinTest(async osu =>
+        {
+            var skinManager = osu.Dependencies.Get<SkinManager>();
+
+            skinManager.CurrentSkinInfo.Value = skinManager.DefaultClassicSkin.SkinInfo;
+
+            skinManager.EnsureMutableSkin();
+            skinManager.Rename(skinManager.CurrentSkinInfo.Value, "breadsticks");
+
+            MemoryStream exportStream = new MemoryStream();
+
+            Guid originalSkinId = skinManager.CurrentSkinInfo.Value.ID;
+
+            await skinManager.CurrentSkinInfo.Value.PerformRead(async s =>
+            {
+                Assert.That(s.Protected, Is.False);
+                Assert.That(s.CreateInstance(skinManager), Is.TypeOf<DefaultLegacySkin>());
+
+                await new LegacySkinExporter(osu.Dependencies.Get<Storage>()).ExportToStreamAsync(skinManager.CurrentSkinInfo.Value, exportStream);
+
+                Assert.That(exportStream.Length, Is.GreaterThan(0));
+            });
+
+            // ReSharper disable once MethodHasAsyncOverload
+            osu.Dependencies.Get<RealmAccess>().Write(r => r.Remove(r.Find<SkinInfo>(originalSkinId)!));
+
+            var imported = await skinManager.Import(new ImportTask(exportStream, "breadsticks.osk"));
+
+            imported.PerformRead(s =>
+            {
+                Assert.That(s.Protected, Is.False);
+                Assert.That(s.ID, Is.Not.EqualTo(originalSkinId));
+                Assert.That(s.CreateInstance(skinManager), Is.TypeOf<DefaultLegacySkin>());
+                Assert.That(s.Name, Is.EqualTo("breadsticks"));
             });
         });
 
