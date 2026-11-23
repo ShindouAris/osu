@@ -100,7 +100,15 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Queue
 
         public async Task<IReadOnlyList<MatchmakingPool>> GetMatchmakingPools()
         {
-            await Task.WhenAll(poolFetchTask).ConfigureAwait(false);
+            try
+            {
+                await poolFetchTask.ConfigureAwait(false);
+            }
+            catch
+            {
+                // The failure has already been logged by the fire-and-forget at the call site.
+                // This happens for servers that do not implement matchmaking, for instance.
+            }
 
             // Return empty list on the off chance the fetch task fails.
             return availablePools ?? [];

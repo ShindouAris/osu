@@ -4,6 +4,7 @@
 #nullable disable
 
 using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
@@ -11,11 +12,12 @@ using osu.Framework.Allocation;
 using osu.Framework.Platform;
 using osu.Game.Configuration;
 using osu.Game.Online.API;
+using osu.Game.Online.Multiplayer;
 
 namespace osu.Game.Tests.NonVisual
 {
     [TestFixture]
-    public class CustomServerConfigurationTest : ImportTest
+    public partial class CustomServerConfigurationTest : ImportTest
     {
         [Test]
         public void TestCustomServerSecretClearedOnStartupWhenNotRemembered()
@@ -24,13 +26,11 @@ namespace osu.Game.Tests.NonVisual
             {
                 try
                 {
-                    using (var config = new OsuConfigManager(host.Storage))
+                    var osu = loadOsuWith(host, config =>
                     {
                         config.SetValue(OsuSetting.CustomServerClientSecret, "super-secret");
                         config.SetValue(OsuSetting.RememberCustomServerSecret, false);
-                    }
-
-                    var osu = LoadOsuIntoHost(host);
+                    });
                     var loadedConfig = osu.Dependencies.Get<OsuConfigManager>();
 
                     Assert.That(loadedConfig.Get<string>(OsuSetting.CustomServerClientSecret), Is.Empty);
@@ -49,13 +49,11 @@ namespace osu.Game.Tests.NonVisual
             {
                 try
                 {
-                    using (var config = new OsuConfigManager(host.Storage))
+                    var osu = loadOsuWith(host, config =>
                     {
                         config.SetValue(OsuSetting.RememberCustomServerSecret, true);
                         config.SetValue(OsuSetting.CustomServerClientSecret, "super-secret");
-                    }
-
-                    var osu = LoadOsuIntoHost(host);
+                    });
                     var loadedConfig = osu.Dependencies.Get<OsuConfigManager>();
 
                     Assert.That(loadedConfig.Get<string>(OsuSetting.CustomServerClientSecret), Is.EqualTo("super-secret"));
@@ -74,17 +72,14 @@ namespace osu.Game.Tests.NonVisual
             {
                 try
                 {
-                    using (var config = new OsuConfigManager(host.Storage))
+                    var osu = loadOsuWith(host, config =>
                     {
                         config.SetValue(OsuSetting.UseCustomServer, true);
                         config.SetValue(OsuSetting.CustomServerUrl, "https://example.test/base/");
-                        config.SetValue(OsuSetting.CustomServerSocketUrl, string.Empty);
                         config.SetValue(OsuSetting.CustomServerClientID, "12345");
                         config.SetValue(OsuSetting.CustomServerClientSecret, "abcde");
                         config.SetValue(OsuSetting.RememberCustomServerSecret, true);
-                    }
-
-                    var osu = LoadOsuIntoHost(host);
+                    });
                     var api = osu.Dependencies.Get<IAPIProvider>();
 
                     Assert.That(api, Is.TypeOf<APIAccess>());
@@ -111,28 +106,82 @@ namespace osu.Game.Tests.NonVisual
             {
                 try
                 {
-                    using (var config = new OsuConfigManager(host.Storage))
+                    var osu = loadOsuWith(host, config =>
                     {
                         config.SetValue(OsuSetting.UseCustomServer, true);
                         config.SetValue(OsuSetting.CustomServerUrl, "https://example.test/base/");
-                        config.SetValue(OsuSetting.CustomServerSocketUrl, "https://socket.example.test/realtime/");
+                        config.SetValue(OsuSetting.CustomServerSpectatorSocketUrl, "https://spectator.example.test/realtime/");
+                        config.SetValue(OsuSetting.CustomServerMultiplayerSocketUrl, "https://multiplayer.example.test/play");
+                        config.SetValue(OsuSetting.CustomServerMetadataSocketUrl, "https://metadata.example.test");
                         config.SetValue(OsuSetting.CustomServerClientID, "12345");
                         config.SetValue(OsuSetting.CustomServerClientSecret, "abcde");
                         config.SetValue(OsuSetting.RememberCustomServerSecret, true);
-                    }
-
-                    var osu = LoadOsuIntoHost(host);
+                    });
                     var api = osu.Dependencies.Get<IAPIProvider>();
 
                     Assert.That(api, Is.TypeOf<APIAccess>());
                     Assert.That(api.Endpoints.WebsiteUrl, Is.EqualTo("https://example.test/base"));
                     Assert.That(api.Endpoints.APIUrl, Is.EqualTo("https://example.test/base"));
-                    Assert.That(api.Endpoints.SpectatorUrl, Is.EqualTo("https://socket.example.test/realtime/spectator"));
-                    Assert.That(api.Endpoints.MultiplayerUrl, Is.EqualTo("https://socket.example.test/realtime/multiplayer"));
-                    Assert.That(api.Endpoints.MetadataUrl, Is.EqualTo("https://socket.example.test/realtime/metadata"));
+                    Assert.That(api.Endpoints.SpectatorUrl, Is.EqualTo("https://spectator.example.test/realtime/spectator"));
+                    Assert.That(api.Endpoints.MultiplayerUrl, Is.EqualTo("https://multiplayer.example.test/play/multiplayer"));
+                    Assert.That(api.Endpoints.MetadataUrl, Is.EqualTo("https://metadata.example.test/metadata"));
                     Assert.That(api.Endpoints.BeatmapSubmissionServiceUrl, Is.EqualTo("https://example.test/base"));
                     Assert.That(api.Endpoints.APIClientID, Is.EqualTo("12345"));
                     Assert.That(api.Endpoints.APIClientSecret, Is.EqualTo("abcde"));
+                }
+                finally
+                {
+                    host.Exit();
+                }
+            }
+        }
+
+        [Test]
+        public void TestMatchmakingAndDuelsUseTheCustomMultiplayerUrl()
+        {
+            // Quick play, ranked play and duels have no endpoint of their own: they are hub methods on the multiplayer connection.
+            using (HeadlessGameHost host = new CleanRunHeadlessGameHost())
+            {
+                try
+                {
+                    var osu = loadOsuWith(host, config =>
+                    {
+                        config.SetValue(OsuSetting.UseCustomServer, true);
+                        config.SetValue(OsuSetting.CustomServerUrl, "https://example.test/base/");
+                        config.SetValue(OsuSetting.CustomServerMultiplayerSocketUrl, "https://multiplayer.example.test/play");
+                    });
+
+                    var client = osu.Dependencies.Get<MultiplayerClient>();
+
+                    Assert.That(client, Is.TypeOf<OnlineMultiplayerClient>());
+                    Assert.That(typeof(OnlineMultiplayerClient).GetField("endpoint", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(client),
+                        Is.EqualTo("https://multiplayer.example.test/play/multiplayer"));
+                }
+                finally
+                {
+                    host.Exit();
+                }
+            }
+        }
+
+        [Test]
+        public void TestSocketUrlsFallBackToTheServerUrlIndividually()
+        {
+            using (HeadlessGameHost host = new CleanRunHeadlessGameHost())
+            {
+                try
+                {
+                    var osu = loadOsuWith(host, config =>
+                    {
+                        config.SetValue(OsuSetting.UseCustomServer, true);
+                        config.SetValue(OsuSetting.CustomServerUrl, "https://example.test/base/");
+                        config.SetValue(OsuSetting.CustomServerMultiplayerSocketUrl, "https://multiplayer.example.test");
+                    });
+                    var api = osu.Dependencies.Get<IAPIProvider>();
+
+                    Assert.That(api.Endpoints.SpectatorUrl, Is.EqualTo("https://example.test/base/spectator"));
+                    Assert.That(api.Endpoints.MultiplayerUrl, Is.EqualTo("https://multiplayer.example.test/multiplayer"));
+                    Assert.That(api.Endpoints.MetadataUrl, Is.EqualTo("https://example.test/base/metadata"));
                 }
                 finally
                 {
@@ -148,13 +197,11 @@ namespace osu.Game.Tests.NonVisual
             {
                 try
                 {
-                    using (var config = new OsuConfigManager(host.Storage))
+                    var osu = loadOsuWith(host, config =>
                     {
                         config.SetValue(OsuSetting.UseCustomServer, true);
                         config.SetValue(OsuSetting.CustomServerUrl, "not a valid url");
-                    }
-
-                    var osu = LoadOsuIntoHost(host);
+                    });
                     var api = osu.Dependencies.Get<IAPIProvider>();
 
                     var expectedDefault = new TestOsuGameWithRealApi().CreateEndpoints();
@@ -179,13 +226,11 @@ namespace osu.Game.Tests.NonVisual
             {
                 try
                 {
-                    using (var config = new OsuConfigManager(host.Storage))
+                    var osu = loadOsuWith(host, config =>
                     {
                         config.SetValue(OsuSetting.UseCustomServer, true);
                         config.SetValue(OsuSetting.CustomServerUrl, string.Empty);
-                    }
-
-                    var osu = LoadOsuIntoHost(host);
+                    });
                     var api = osu.Dependencies.Get<IAPIProvider>();
 
                     var expectedDefault = new TestOsuGameWithRealApi().CreateEndpoints();
@@ -210,14 +255,13 @@ namespace osu.Game.Tests.NonVisual
             {
                 try
                 {
-                    using (var config = new OsuConfigManager(host.Storage))
+                    var osu = loadOsuWith(host, config =>
                     {
                         config.SetValue(OsuSetting.UseCustomServer, true);
                         config.SetValue(OsuSetting.CustomServerUrl, "https://example.test/base/");
-                        config.SetValue(OsuSetting.CustomServerSocketUrl, "not a valid url");
-                    }
-
-                    var osu = LoadOsuIntoHost(host);
+                        config.SetValue(OsuSetting.CustomServerSpectatorSocketUrl, "https://spectator.example.test/");
+                        config.SetValue(OsuSetting.CustomServerMultiplayerSocketUrl, "not a valid url");
+                    });
                     var api = osu.Dependencies.Get<IAPIProvider>();
 
                     var expectedDefault = new TestOsuGameWithRealApi().CreateEndpoints();
@@ -236,8 +280,19 @@ namespace osu.Game.Tests.NonVisual
         }
 
         protected override TestOsuGameBase LoadOsuIntoHost(GameHost host, bool withBeatmap = false)
+            => loadOsuWith(host, null, withBeatmap);
+
+        /// <summary>
+        /// Starts the game in <paramref name="host"/>, first applying <paramref name="configure"/> to the game's settings.
+        /// </summary>
+        /// <remarks>
+        /// Settings cannot be written beforehand through the host: its storage does not exist until the host runs, and
+        /// <see cref="CleanRunHeadlessGameHost"/> wipes the storage directory when it starts. The game therefore applies them
+        /// itself, after the storage is ready and before it creates its configuration (see <see cref="TestOsuGameWithRealApi.SetHost"/>).
+        /// </remarks>
+        private TestOsuGameBase loadOsuWith(GameHost host, Action<OsuConfigManager> configure, bool withBeatmap = false)
         {
-            var osu = new TestOsuGameWithRealApi(withBeatmap);
+            var osu = new TestOsuGameWithRealApi(withBeatmap, configure);
 
             Task.Factory.StartNew(() => host.Run(osu), TaskCreationOptions.LongRunning)
                 .ContinueWith(t => Assert.Fail($"Host threw exception {t.Exception}"), TaskContinuationOptions.OnlyOnFaulted);
@@ -267,9 +322,29 @@ namespace osu.Game.Tests.NonVisual
 
         private partial class TestOsuGameWithRealApi : TestOsuGameBase
         {
-            public TestOsuGameWithRealApi(bool withBeatmap = false)
+            private readonly Action<OsuConfigManager> configure;
+
+            public TestOsuGameWithRealApi(bool withBeatmap = false, Action<OsuConfigManager> configure = null)
                 : base(withBeatmap)
             {
+                this.configure = configure;
+
+                // TestOsuGameBase installs a dummy API. These tests assert on the endpoints of the real one, so clear it and let
+                // OsuGameBase create an APIAccess. (The property is protected and hidden by TestOsuGameBase, hence reflection.)
+                typeof(OsuGameBase).GetProperty(nameof(API), BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(this, null);
+            }
+
+            public override void SetHost(GameHost host)
+            {
+                // OsuGameBase.SetHost creates the config manager from this storage, so the settings have to be in place before it.
+                // It must be the same kind the game will create: development builds read "game.dev.ini", not "game.ini".
+                if (configure != null)
+                {
+                    using (var config = UseDevelopmentServer ? new DevelopmentOsuConfigManager(host.Storage) : new OsuConfigManager(host.Storage))
+                        configure(config);
+                }
+
+                base.SetHost(host);
             }
         }
     }

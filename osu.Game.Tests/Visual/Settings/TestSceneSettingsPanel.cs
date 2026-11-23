@@ -3,11 +3,13 @@
 
 #nullable disable
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using osu.Framework.Allocation;
 using osu.Framework.Extensions;
+using osu.Framework.Graphics;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Testing;
 using osu.Game.Graphics.UserInterface;
@@ -164,10 +166,14 @@ namespace osu.Game.Tests.Visual.Settings
         {
             AddUntilStep("wait for settings to load", () => settings.SectionsContainer.ChildrenOfType<IFilterable>().Any());
             AddAssert("server settings visible", () => settings.SectionsContainer.ChildrenOfType<ServerSettings>().Any());
-            AddAssert("socket server URL field visible", () => settings.SectionsContainer
-                                                                      .ChildrenOfType<ServerSettings>()
-                                                                      .SelectMany(s => s.ChildrenOfType<FormTextBox>())
-                                                                      .Any(t => t.Caption.ToString().Contains("Socket server URL")));
+
+            foreach (string service in new[] { "Spectator", "Multiplayer", "Metadata" })
+            {
+                AddAssert($"{service.ToLowerInvariant()} socket server URL field visible", () => settings.SectionsContainer
+                                                                                                   .ChildrenOfType<ServerSettings>()
+                                                                                                   .SelectMany(s => s.ChildrenOfType<FormTextBox>())
+                                                                                                   .Any(t => t.Caption.ToString().StartsWith($"{service} socket server URL", StringComparison.Ordinal)));
+            }
         }
 
         [Test]
@@ -179,6 +185,7 @@ namespace osu.Game.Tests.Visual.Settings
             SettingsButtonV2 revertToDefaultButton = null!;
 
             AddUntilStep("wait for server settings", () => (serverSettings = settings.SectionsContainer.ChildrenOfType<ServerSettings>().SingleOrDefault()) != null);
+            scrollIntoView(() => serverSettings);
             AddStep("grab custom server controls", () =>
             {
                 useCustomServerToggle = serverSettings.ChildrenOfType<FormCheckBox>().First();
@@ -186,23 +193,27 @@ namespace osu.Game.Tests.Visual.Settings
                 revertToDefaultButton = serverSettings.ChildrenOfType<SettingsButtonV2>().First();
             });
 
+            // The dummy API starts out online, so go offline first: otherwise the "disabled while online" checks below would
+            // pass without the section ever having reacted to a change.
+            AddStep("set API offline", () => dummyAPI.SetState(APIState.Offline));
+            AddUntilStep("custom server toggle enabled", () => !useCustomServerToggle.Current.Disabled);
             AddAssert("revert button disabled when custom server off", () => !revertToDefaultButton.Enabled.Value);
 
             AddStep("set API online", () => dummyAPI.SetState(APIState.Online));
-            AddAssert("custom server toggle disabled", () => useCustomServerToggle.Current.Disabled);
+            AddUntilStep("custom server toggle disabled", () => useCustomServerToggle.Current.Disabled);
             AddAssert("server URL textbox read-only", () => serverUrlTextBox.ReadOnly);
             AddAssert("server URL bindable is not disabled", () => !serverUrlTextBox.Current.Disabled);
             AddAssert("revert button disabled while online", () => !revertToDefaultButton.Enabled.Value);
 
-            AddStep("set API offline", () => dummyAPI.SetState(APIState.Offline));
-            AddAssert("custom server toggle enabled", () => !useCustomServerToggle.Current.Disabled);
+            AddStep("set API offline again", () => dummyAPI.SetState(APIState.Offline));
+            AddUntilStep("custom server toggle enabled again", () => !useCustomServerToggle.Current.Disabled);
 
             AddStep("enable custom server", () => useCustomServerToggle.Current.Value = true);
-            AddAssert("server URL textbox editable", () => !serverUrlTextBox.ReadOnly);
+            AddUntilStep("server URL textbox editable", () => !serverUrlTextBox.ReadOnly);
             AddAssert("revert button enabled when custom server is on", () => revertToDefaultButton.Enabled.Value);
 
-            AddStep("set API online again", () => dummyAPI.SetState(APIState.Online));
-            AddAssert("revert button disabled again while online", () => !revertToDefaultButton.Enabled.Value);
+            AddStep("set API online once more", () => dummyAPI.SetState(APIState.Online));
+            AddUntilStep("revert button disabled again while online", () => !revertToDefaultButton.Enabled.Value);
         }
 
         [Test]
@@ -212,13 +223,27 @@ namespace osu.Game.Tests.Visual.Settings
             FormCheckBox useCustomServerToggle = null!;
 
             AddUntilStep("wait for server settings", () => (serverSettings = settings.SectionsContainer.ChildrenOfType<ServerSettings>().SingleOrDefault()) != null);
+            scrollIntoView(() => serverSettings);
             AddStep("grab custom server toggle", () => useCustomServerToggle = serverSettings.ChildrenOfType<FormCheckBox>().First());
 
-            AddStep("set API online on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Online)).WaitSafely());
-            AddAssert("custom server toggle disabled", () => useCustomServerToggle.Current.Disabled);
-
             AddStep("set API offline on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Offline)).WaitSafely());
-            AddAssert("custom server toggle enabled", () => !useCustomServerToggle.Current.Disabled);
+            AddUntilStep("custom server toggle enabled", () => !useCustomServerToggle.Current.Disabled);
+
+            AddStep("set API online on background thread", () => Task.Run(() => dummyAPI.SetState(APIState.Online)).WaitSafely());
+            AddUntilStep("custom server toggle disabled", () => useCustomServerToggle.Current.Disabled);
+
+            AddStep("set API offline on background thread again", () => Task.Run(() => dummyAPI.SetState(APIState.Offline)).WaitSafely());
+            AddUntilStep("custom server toggle enabled again", () => !useCustomServerToggle.Current.Disabled);
+        }
+
+        /// <summary>
+        /// Scrolls <paramref name="target"/> into view. Drawables outside the visible area are not updated, so a settings
+        /// section further down the list would never react to anything (such as API state changes) until it is shown.
+        /// </summary>
+        private void scrollIntoView(Func<Drawable> target)
+        {
+            AddStep("scroll into view", () => settings.SectionsContainer.ScrollTo(target()));
+            AddUntilStep("is on screen", () => settings.SectionsContainer.ScreenSpaceDrawQuad.AABBFloat.IntersectsWith(target().ScreenSpaceDrawQuad.AABBFloat));
         }
 
         [BackgroundDependencyLoader]

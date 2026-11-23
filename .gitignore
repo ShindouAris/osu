@@ -344,3 +344,7 @@ FodyWeavers.xsd
 
 .idea/.idea.osu.Desktop/.idea/misc.xml
 .idea/.idea.osu.Android/.idea/deploymentTargetDropDown.xml
+
+# local JetBrains files
+.idea/.idea.osu.Desktop/.idea/discord.xml
+.idea/.idea.osu.Desktop/.idea/inspectionProfiles/
