@@ -327,6 +327,11 @@ namespace osu.Game.Screens.Play
                 score.ScoreInfo.OnlineID = s.ID;
                 score.ScoreInfo.Position = s.Position;
 
+                // The server decides what a play is worth (Relax / Autopilot boards use their own pp), so the results
+                // screen shows that instead of recalculating it locally with the stock formulas.
+                if (s.PP.HasValue)
+                    score.ScoreInfo.PP = s.PP;
+
                 scoreSubmissionSource.SetResult(true);
                 Logger.Log($"Score submission completed! (token:{token.Value} id:{s.ID})");
             };
