@@ -251,7 +251,8 @@ namespace osu.Game.Graphics.UserInterfaceV2
 
         public void SetDefault() => current.SetDefault();
 
-        public bool IsDisabled => current.Disabled;
+        // A read-only box is locked just like a disabled one; without this its "revert to default" button stays usable.
+        public bool IsDisabled => current.Disabled || ReadOnly;
 
         public IEnumerable<LocalisableString> FilterTerms => new[] { Caption, HintText };
 
