@@ -249,6 +249,10 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Queue
             xRange.min = (int)floorWithFactor(xRange.min, xDivisionStep);
             xRange.max = (int)ceilingWithFactor(xRange.max, xDivisionStep);
 
+            // Every player on the same rating (or nobody at all) leaves an empty range, which would divide by zero below.
+            if (xRange.max <= xRange.min)
+                xRange.max = xRange.min + xDivisionStep;
+
             if (userRating < xRange.min)
             {
                 this.data = this.data.Prepend((userRating.Value, 1)).ToArray();
@@ -261,7 +265,7 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Queue
                 xRange.max = userRating.Value;
             }
 
-            int yMax = this.data.Select(d => d.y).DefaultIfEmpty().Max();
+            int yMax = Math.Max(1, this.data.Select(d => d.y).DefaultIfEmpty().Max());
 
             yRange = (
                 0,

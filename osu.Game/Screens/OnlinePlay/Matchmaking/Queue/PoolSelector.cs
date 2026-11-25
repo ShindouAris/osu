@@ -1,6 +1,7 @@
 // Copyright (c) ppy Pty Ltd <contact@ppy.sh>. Licensed under the MIT Licence.
 // See the LICENCE file in the repository root for full licence text.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
@@ -10,6 +11,7 @@ using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
 using osu.Framework.Input.Events;
 using osu.Game.Graphics;
+using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Graphics.UserInterface;
 using osu.Game.Online.Matchmaking;
@@ -28,13 +30,16 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Queue
         public readonly Bindable<IReadOnlyList<MatchmakingPool>?> AvailablePools = new Bindable<IReadOnlyList<MatchmakingPool>?>();
         public readonly Bindable<MatchmakingPool?> SelectedPool = new Bindable<MatchmakingPool?>();
 
+        private OsuScrollContainer scroll = null!;
         private FillFlowContainer<SelectorButton> poolFlow = null!;
         private LoadingSpinner loading = null!;
 
         public PoolSelector()
         {
-            AutoSizeAxes = Axes.X;
-            Height = SelectorButton.SIZE.Y + 10;
+            // As wide as the screen allows: with many pools the row scrolls instead of running off the screen.
+            RelativeSizeAxes = Axes.X;
+            // Room for the selected button, which is scaled up.
+            Height = SelectorButton.SIZE.Y * 1.2f + 10;
         }
 
         [BackgroundDependencyLoader]
@@ -42,12 +47,17 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Queue
         {
             InternalChildren = new Drawable[]
             {
-                poolFlow = new FillFlowContainer<SelectorButton>
+                scroll = new OsuScrollContainer(Direction.Horizontal)
                 {
-                    AutoSizeAxes = Axes.X,
-                    RelativeSizeAxes = Axes.Y,
-                    Direction = FillDirection.Horizontal,
-                    Spacing = new Vector2(5),
+                    RelativeSizeAxes = Axes.Both,
+                    ScrollbarVisible = false,
+                    Child = poolFlow = new FillFlowContainer<SelectorButton>
+                    {
+                        AutoSizeAxes = Axes.X,
+                        RelativeSizeAxes = Axes.Y,
+                        Direction = FillDirection.Horizontal,
+                        Spacing = new Vector2(5),
+                    },
                 },
                 loading = new LoadingSpinner(withBox: true)
                 {
@@ -84,6 +94,24 @@ namespace osu.Game.Screens.OnlinePlay.Matchmaking.Queue
                     });
                 }
             }, true);
+
+            // Keep the chosen pool in view, whether it was picked with the mouse or the arrow keys.
+            SelectedPool.BindValueChanged(_ =>
+            {
+                var selected = poolFlow.FirstOrDefault(b => b.IsSelected);
+                if (selected != null)
+                    scroll.ScrollIntoView(selected);
+            });
+        }
+
+        protected override void Update()
+        {
+            base.Update();
+
+            // A few pools stay centred, as before; many fill the width and scroll.
+            float margin = Math.Max(0, (DrawWidth - poolFlow.DrawWidth) / 2);
+            if (poolFlow.Margin.Left != margin)
+                poolFlow.Margin = new MarginPadding { Left = margin };
         }
 
         protected override bool OnKeyDown(KeyDownEvent e)
